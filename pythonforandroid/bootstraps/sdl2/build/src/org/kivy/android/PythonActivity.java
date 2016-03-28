@@ -52,6 +52,15 @@ public class PythonActivity extends SDLActivity {
     protected void onCreate(Bundle savedInstanceState) {
         Log.v(TAG, "My oncreate running");
         resourceManager = new ResourceManager(this);
+
+        this.mActivity = this;
+        try {
+            Log.v(TAG, "Access to our meta-data...");
+            this.mMetaData = this.mActivity.getPackageManager().getApplicationInfo(
+                    this.mActivity.getPackageName(), PackageManager.GET_META_DATA).metaData;
+        } catch (PackageManager.NameNotFoundException e) {
+        }
+
         this.showLoadingScreen();
 
         Log.v(TAG, "Ready to unpack");
@@ -62,7 +71,6 @@ public class PythonActivity extends SDLActivity {
         Log.v(TAG, "Did super onCreate");
 
         this.showLoadingScreen();
-        this.mActivity = this;
 
         String mFilesDirectory = mActivity.getFilesDir().getAbsolutePath();
         Log.v(TAG, "Setting env vars for start.c and Python to use");
@@ -73,23 +81,16 @@ public class PythonActivity extends SDLActivity {
         SDLActivity.nativeSetEnv("PYTHONHOME", mFilesDirectory);
         SDLActivity.nativeSetEnv("PYTHONPATH", mFilesDirectory + ":" + mFilesDirectory + "/lib");
 
-        try {
-            Log.v(TAG, "Access to our meta-data...");
-            this.mMetaData = this.mActivity.getPackageManager().getApplicationInfo(
-                    this.mActivity.getPackageName(), PackageManager.GET_META_DATA).metaData;
-
-            PowerManager pm = (PowerManager) this.mActivity.getSystemService(Context.POWER_SERVICE);
-            if ( this.mMetaData.getInt("wakelock") == 1 ) {
-                this.mWakeLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "Screen On");
-            }
-            if ( this.mMetaData.getInt("surface.transparent") != 0 ) {
-                Log.v(TAG, "Surface will be transparent.");
-                getSurface().setZOrderOnTop(true);
-                getSurface().getHolder().setFormat(PixelFormat.TRANSPARENT);
-            } else {
-                Log.i(TAG, "Surface will NOT be transparent");
-            }
-        } catch (PackageManager.NameNotFoundException e) {
+        PowerManager pm = (PowerManager) this.mActivity.getSystemService(Context.POWER_SERVICE);
+        if ( this.mMetaData.getInt("wakelock") == 1 ) {
+            this.mWakeLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "Screen On");
+        }
+        if ( this.mMetaData.getInt("surface.transparent") != 0 ) {
+            Log.v(TAG, "Surface will be transparent.");
+            getSurface().setZOrderOnTop(true);
+            getSurface().getHolder().setFormat(PixelFormat.TRANSPARENT);
+        } else {
+            Log.i(TAG, "Surface will NOT be transparent");
         }
     }
 
@@ -337,12 +338,21 @@ public class PythonActivity extends SDLActivity {
           } catch (IOException e) {};
         }
 
+        String scaleTypeName = mMetaData.getString("presplash.scaletype", "FIT_CENTER");
+        ImageView.ScaleType scaleType;
+        try {
+            scaleType = ImageView.ScaleType.valueOf(scaleTypeName);
+        } catch (IllegalArgumentException e) {
+            Log.w(TAG, "Scale type provided for presplash image is not valid: " + scaleTypeName);
+            scaleType = ImageView.ScaleType.FIT_CENTER;
+        }
+
         mImageView = new ImageView(this);
         mImageView.setImageBitmap(bitmap);
         mImageView.setLayoutParams(new ViewGroup.LayoutParams(
         ViewGroup.LayoutParams.FILL_PARENT,
         ViewGroup.LayoutParams.FILL_PARENT));
-        mImageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        mImageView.setScaleType(scaleType);
       }
 
       if (mLayout == null) {
